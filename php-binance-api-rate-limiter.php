@@ -5,7 +5,7 @@
  * @package php-binance-api
  * @link https://github.com/jaggedsoft/php-binance-api
  * ============================================================
- * @copyright 2017-20201
+ * @copyright 2017-2021
  * @author Jon Eyrick
  * @license MIT License
  * ============================================================
@@ -258,7 +258,7 @@ class RateLimiter
                 }
             }
         }
-        
+
         return call_user_func_array(array(&$this->api, $name), $arguments);
     }
 }
