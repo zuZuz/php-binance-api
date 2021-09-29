@@ -45,7 +45,7 @@ class RateLimiter
         $this->api = $api;
 
         $this->weights = array(
-            'account' => 5,
+            'account' => 10,
             'addToTransfered' => 0,
             'aggTrades' => 1,
             'balances' => 1,
@@ -79,10 +79,10 @@ class RateLimiter
             'miniTicker' => 1,
             'openOrders' => 2,
             'order' => 1,
-            'orders' => 5,
+            'orders' => 10,
             'orderStatus' => 1,
             'prevDay' => 2,
-            'prices' => 1,
+            'prices' => 2,
             'report' => 0,
             'sell' => 1,
             'sellTest' => 1,
@@ -97,6 +97,9 @@ class RateLimiter
             'withdraw' => 1,
             'withdrawFee' => 1,
             'withdrawHistory' => 1,
+            'fiatHistory' => 1,
+            'fiatPaymentsHistory' => 1,
+            'commissionFee' => 1,
         );
 
         $this->ordersfunctions = array(

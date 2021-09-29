@@ -1580,14 +1580,14 @@ class API
             $opt["endTime"] = $endTime;
         }
 
-        $response = $this->httpRequest("v1/klines", "GET", $opt);
+        $response = $this->httpRequest("v3/klines", "GET", $opt);
 
         if (is_array($response) === false) {
             return [];
         }
 
         if (count($response) === 0) {
-            echo "warning: v1/klines returned empty array, usually a blip in the connection or server" . PHP_EOL;
+            echo "warning: v3/klines returned empty array, usually a blip in the connection or server" . PHP_EOL;
             return [];
         }
 
@@ -3026,6 +3026,43 @@ class API
         return $ticker['price'];
     }
 
+    /**
+     * fiatHistory - Get Fiat Deposit/Withdraw History
+     *
+     * @link https://binance-docs.github.io/apidocs/spot/en/#get-fiat-deposit-withdraw-history-user_data
+     *
+     * @property int $weight 1
+     *
+     * @param array  $params   (optional)  An array of additional parameters that the API endpoint allows
+     *
+     * @return array containing the response
+     * @throws \Exception
+     */
+    public function fiatHistory(array $params)
+    {
+        $params['sapi'] = true;
+
+        return $this->httpRequest("v1/fiat/orders", "GET", $params, true);
+    }
+
+    /**
+     * fiatHistory - Get Fiat Payments History
+     *
+     * @link https://binance-docs.github.io/apidocs/spot/en/#get-fiat-payments-history-user_data
+     *
+     * @property int $weight 1
+     *
+     * @param array  $params   (optional)  An array of additional parameters that the API endpoint allows
+     *
+     * @return array containing the response
+     * @throws \Exception
+     */
+    public function fiatPaymentsHistory(array $params)
+    {
+        $params['sapi'] = true;
+
+        return $this->httpRequest("v1/fiat/payments", "GET", $params, true);
+    }
 
     /*********************************************
      *
