@@ -33,14 +33,23 @@ class RateLimiter
     private $api = null;
     private $weights = null;
     private $ordersfunctions = null;
-    private $exchangeRequestsRateLimit = 10;
+    private $requestWeightLimit = 10;
+    private $requestWeightInterval = 60;
     private $exchangeOrdersRateLimit = 10;
+    private $exchangeOrdersRateInterval = 10;
     private $exchangeOrdersDailyLimit = 10;
+    private $exchangeOrdersDailyInterval = 10;
     private $requestsQueue = array();
     private $ordersQueue = array();
     private $ordersDayQueue = array();
 
-    public function __construct($api)
+    /**
+     * RateLimiter constructor
+     *
+     * @param API $api
+     * @param array $limits
+     */
+    public function __construct(API $api, array $limits = null)
     {
         $this->api = $api;
 
@@ -120,29 +129,39 @@ class RateLimiter
             'trades',
         );
 
-        $this->init();
+        $this->init($limits);
     }
 
-    private function init()
+    /**
+     * @param array $limits
+     *
+     * @return void
+     */
+    private function init(array $limits = null): void
     {
-        $exchangeLimits = $this->api->exchangeInfo()['rateLimits'];
+        if (empty($config)) {
+            $limits = $this->api->exchangeInfo()['rateLimits'];
+        }
 
-        if (is_array($exchangeLimits) === false) {
+        if (is_array($limits) === false) {
             print "Problem getting exchange limits\n";
             return;
         }
 
-        foreach ($exchangeLimits as $exchangeLimit) {
+        foreach ($limits as $exchangeLimit) {
             switch ($exchangeLimit['rateLimitType']) {
-                case "REQUESTS":
-                    $this->exchangeRequestsRateLimit = round($exchangeLimit['limit'] * 0.95);
+                case "REQUEST_WEIGHT":
+                    $this->requestWeightLimit = round($exchangeLimit['limit'] * 0.95);
+                    $this->requestWeightInterval = $this->getInterval($exchangeLimit);
                     break;
                 case "ORDERS":
                     if ($exchangeLimit['interval'] === "SECOND") {
                         $this->exchangeOrdersRateLimit = round($exchangeLimit['limit'] * 0.9);
+                        $this->exchangeOrdersRateInterval = $this->getInterval($exchangeLimit);
                     }
                     if ($exchangeLimit['interval'] === "DAY") {
                         $this->exchangeOrdersDailyLimit = round($exchangeLimit['limit'] * 0.98);
+                        $this->exchangeOrdersDailyInterval = $this->getInterval($exchangeLimit);
                     }
                     break;
             }
@@ -171,16 +190,16 @@ class RateLimiter
         $this->api->$member = $value;
     }
 
-    private function requestsPerMinute()
+    private function requestsPerInterval()
     {
         // requests per minute restrictions
         if (count($this->requestsQueue) === 0) {
             return;
         }
 
-        while (count($this->requestsQueue) > $this->exchangeOrdersDailyLimit) {
+        while (count($this->requestsQueue) > $this->requestWeightLimit) {
             $oldest = isset($this->requestsQueue[0]) ? $this->requestsQueue[0] : time();
-            while ($oldest < time() - 60) {
+            while ($oldest < time() - $this->requestWeightInterval) {
                 array_shift($this->requestsQueue);
                 $oldest = isset($this->requestsQueue[0]) ? $this->requestsQueue[0] : time();
             }
@@ -198,7 +217,7 @@ class RateLimiter
 
         while (count($this->ordersQueue) > $this->exchangeOrdersRateLimit) {
             $oldest = isset($this->ordersQueue[0]) ? $this->ordersQueue[0] : time();
-            while ($oldest < time() - 1) {
+            while ($oldest < time() - $this->exchangeOrdersRateInterval) {
                 array_shift($this->ordersQueue);
                 $oldest = isset($this->ordersQueue[0]) ? $this->ordersQueue[0] : time();
             }
@@ -214,7 +233,7 @@ class RateLimiter
             return;
         }
 
-        $yesterday = time() - (24 * 60 * 60);
+        $yesterday = time() - $this->exchangeOrdersDailyInterval;
         while (count($this->ordersDayQueue) > round($this->exchangeOrdersDailyLimit * 0.8)) {
             $oldest = isset($this->ordersDayQueue[0]) ? $this->ordersDayQueue[0] : time();
             while ($oldest < $yesterday) {
@@ -232,6 +251,24 @@ class RateLimiter
     }
 
     /**
+     * @param array $limit
+     *
+     * @return int
+     */
+    private function getInterval(array $limit): int
+    {
+        $intervals = [
+            'SECOND' => 1,
+            'MINUTE' => 60,
+            'DAY' => 60 * 60 * 24,
+        ];
+
+        $default = 60;
+
+        return ($intervals[$limit['interval']] ?? $default) * $limit['intervalNum'];
+    }
+
+    /**
      * magic call to redirect call to the API, capturing and monitoring the weight limit
      *
      * @param $name the function to call
@@ -242,7 +279,7 @@ class RateLimiter
         $weight = $this->weights[$name] ?? false;
 
         if ($weight && $weight > 0) {
-            $this->requestsPerMinute();
+            $this->requestsPerInterval();
             if (in_array($name, $this->ordersfunctions) === true) {
                 $this->ordersPerSecond();
                 $this->ordersPerDay();
